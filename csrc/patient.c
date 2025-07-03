@@ -83,11 +83,13 @@ int NewPatientIndex(
     if (strlen(ci) != 8) return ERR_FIELD_CI_FORMAT;
 
     PatientIndex p;
+    memset(&p, 0, sizeof(PatientIndex));
     strcpy(p.ci, ci);
     if (!p.ci) {
         return ERR_ALLOC;
     }
     p.position = position;
+    p.next = -1;
 
     size_t hash;
     int error = Hash(&hash, p.ci);
@@ -95,8 +97,47 @@ int NewPatientIndex(
         return error;
     }
 
-    (*index)[hash] = p;
-    if ((*index)[hash].ci[0] == '\0') return ERR_ASSIGN;
+    // Collision Handling through linear sounding
+    if ((*index)[hash].ci[0] != '\0') {
+        int assigned = 0;
+        for (int i = hash + 1; i < MAX_INDEX - 1; i++) {
+            if ((*index)[i].ci[0] != '\0') {
+                (*index)[i] = p;
+                assigned = 1;
+                if ((*index)[hash].next != -1) {
+                    int temp;
+                    temp = (*index)[hash].next;
+                    (*index)[hash].next = i;
+                    (*index)[i].next = temp;
+                } else {
+                    (*index)[hash].next = i;
+                }
+                break;
+            }
+        }
+
+        if (!assigned) {
+            for(int i = 0; i < hash; i++) {
+                if ((*index)[i].ci[0] != '\0') {
+                    (*index)[i] = p;
+                    assigned = 1;
+                    if ((*index)[hash].next != -1) {
+                        int temp;
+                        temp = (*index)[hash].next;
+                        (*index)[hash].next = i;
+                        (*index)[i].next = temp;
+                    } else {
+                        (*index)[hash].next = i;
+                    }
+                    break;
+                }   
+            }
+        }
+
+        if (!assigned) return ERR_OUT_OF_RANGE;
+    } else {
+        (*index)[hash] = p;
+    }
 
     return 0;
 }
@@ -108,8 +149,7 @@ void FreePatient(Patient* p) {
 }
     
 void SortPatients(Patient* arr, int left, int right) {
-    if (right <= left) return; // nada que ordenar
-    // quicksort clásico solo sobre [left, right]
+    if (right <= left) return;
     int i = left, j = right;
     Patient pivot = arr[(left + right) / 2];
     while (i <= j) {
@@ -194,7 +234,7 @@ int LoadIndex(
     return 0;
 }
 
-int GetPatient(Patient* p_dest, size_t* i_dest, const Index index, const char* ci) {
+int GetPatient(Patient* p_dest, size_t* i_dest, Index index, const char* ci) {
     if (p_dest == NULL || i_dest == NULL || ci == NULL) return ERR_NULL_PTR;
     if (index == NULL) return ERR_NULL_PTR;
     size_t hash = 0;
@@ -204,6 +244,24 @@ int GetPatient(Patient* p_dest, size_t* i_dest, const Index index, const char* c
     if (index[hash].ci[0] == '\0') {
         // printf("No patient found for CI %s at hash %zu\n", ci, hash);
         return ERR_NOT_FOUND;
+    }
+
+    // Walk through sinonimos
+    if (strcmp(index[hash].ci, ci) != 0) {
+        int found = 0;
+        PatientIndex temp = index[hash];
+        while(temp.next != -1) {
+            if (strcmp(index[temp.next].ci, ci) == 0) {
+                found = 1;
+                break;
+            }
+            temp = index[temp.next];
+        }
+        if (found) {
+            hash = temp.next;
+        } else {
+            return ERR_NOT_FOUND;
+        }
     }
     size_t position = index[hash].position;
     // printf("Hash position for CI %s: %zu, File position: %zu\n", ci, hash, position);
@@ -241,13 +299,10 @@ int AddPatient(
     }
     fclose(file);
     
-    size_t hash;
-    int error = Hash(&hash, new_patient->ci);
-    if (error != 0) {
-        return ERR_INVALID_ARG;
+    int err = NewPatientIndex(index, new_patient->ci, *count);
+    if (err != 0) {
+        return err;
     }
-    (*index)[hash].position = *count;
-    strcpy((*index)[hash].ci, new_patient->ci);
     (*count)++;
     return 0;
 }
@@ -257,16 +312,14 @@ int UpdatePatient(
     const char* ci,
     Patient* updated_patient
 ) {
-    if (index == NULL || ci == NULL || updated_patient == NULL) {
+    if (index == NULL || ci == NULL || updated_patient == NULL) {;
         return ERR_NULL_PTR;
     }
     size_t hash;
-    int error = Hash(&hash, ci);
-    if (error != 0) {
-        return ERR_INVALID_ARG;
-    }
-    if ((*index)[hash].ci[0] == '\0' || strcmp((*index)[hash].ci, ci) != 0) {
-        return ERR_NOT_FOUND;
+    Patient dummy;
+    int err = GetPatient(&dummy, &hash, *index, ci);
+    if (err != 0) {
+        return err;
     }
     size_t position = (*index)[hash].position;
 

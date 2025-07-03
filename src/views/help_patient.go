@@ -164,14 +164,6 @@ func (i *PatientInput) Validate() error {
 		return fmt.Errorf("Age must be between 1 and 120")
 	}
 
-	// validate diagnosis
-	if i.Diagnosis.Value() == "" {
-		return fmt.Errorf("Diagnosis cannot be empty")
-	}
-	if len(i.Diagnosis.Value()) > 50 {
-		return fmt.Errorf("Diagnosis must be up to 50 characters long")
-	}
-
 	// validate gender
 	if i.Gender.Value() == "" {
 		return fmt.Errorf("Gender cannot be empty")
@@ -181,6 +173,14 @@ func (i *PatientInput) Validate() error {
 	}
 	if i.Gender.Value() != "M" && i.Gender.Value() != "F" {
 		return fmt.Errorf("Gender must be 'M' or 'F'")
+	}
+
+	// validate diagnosis
+	if i.Diagnosis.Value() == "" {
+		return fmt.Errorf("Diagnosis cannot be empty")
+	}
+	if len(i.Diagnosis.Value()) > 50 {
+		return fmt.Errorf("Diagnosis must be up to 50 characters long")
 	}
 
 	// validate disability

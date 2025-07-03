@@ -157,7 +157,9 @@ func (s *PatientService) UpdatePatient(p Patient) error {
 		return err
 	}
 
-	errCode := C.UpdatePatient(&s.index, &c_patient.ci[0], &c_patient)
+	ci := C.CString(p.ID)
+	defer C.free(unsafe.Pointer(ci))
+	errCode := C.UpdatePatient(&s.index, ci, &c_patient)
 	if errCode != 0 {
 		errMsg := C.GoString(C.ErrorDescription(errCode))
 		return fmt.Errorf("error updating patient: %s", errMsg)

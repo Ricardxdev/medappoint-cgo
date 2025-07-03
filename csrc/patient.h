@@ -32,7 +32,7 @@ typedef struct {
 typedef struct PatientIndex {
     char    ci[9];
     size_t  position;              // position in patients array/file
-    struct PatientIndex* next;     // for collision chains (optional)
+    int next;     // for collision chains (optional)
 } PatientIndex;
 
 typedef PatientIndex Index[MAX_INDEX];
@@ -116,7 +116,7 @@ int SyncFiles(Patient patients[], size_t count, Index* index);
 int GetPatient(
     Patient*            p_dest,
     size_t*             i_dest,
-    const Index         index,
+    Index         index,
     const char*         ci
 );
 
