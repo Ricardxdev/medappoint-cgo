@@ -62,6 +62,7 @@ func (m customTableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc", "q":
 			return m.Parent, nil
 		case "ctrl+c":
+			global.PatientsService.Save()
 			return m, tea.Quit
 		case "enter":
 			if m.filterInput.Value() == "" {
@@ -182,6 +183,7 @@ func (m listMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc", "q":
 			return m.Parent, nil
 		case "ctrl+c":
+			global.PatientsService.Save()
 			return m, tea.Quit
 		}
 	}

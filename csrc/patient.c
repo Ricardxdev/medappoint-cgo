@@ -220,18 +220,27 @@ int GetPatient(Patient* p_dest, size_t* i_dest, const Index index, const char* c
 }
 
 int AddPatient(
-    Patient* patients,
     size_t* count,
     Index* index,
     Patient* new_patient
 ) {
-    if (patients == NULL || count == NULL || new_patient == NULL) {
+    if (count == NULL || new_patient == NULL) {
         return ERR_NULL_PTR;
     }
     if (*count >= MAX_PATIENTS) {
         return ERR_OUT_OF_RANGE;
     }
-    patients[*count] = *new_patient;
+
+    FILE *file = fopen(PATIENT_FILE, "ab");
+    if (file == NULL) {
+        return ERR_IO;
+    }
+    if (fwrite(new_patient, sizeof(Patient), 1, file) != 1) {
+        fclose(file);
+        return ERR_IO;
+    }
+    fclose(file);
+    
     size_t hash;
     int error = Hash(&hash, new_patient->ci);
     if (error != 0) {
@@ -244,12 +253,11 @@ int AddPatient(
 }
 
 int UpdatePatient(
-    Patient* patients,
     Index* index,
     const char* ci,
     Patient* updated_patient
 ) {
-    if (patients == NULL || index == NULL || ci == NULL || updated_patient == NULL) {
+    if (index == NULL || ci == NULL || updated_patient == NULL) {
         return ERR_NULL_PTR;
     }
     size_t hash;
@@ -261,7 +269,15 @@ int UpdatePatient(
         return ERR_NOT_FOUND;
     }
     size_t position = (*index)[hash].position;
-    patients[position] = *updated_patient;
+
+    FILE* file = fopen(PATIENT_FILE, "rb+");
+    if (file == NULL) return ERR_IO;
+    fseek(file, position * sizeof(Patient), SEEK_SET);
+    if (fwrite(updated_patient, sizeof(Patient), 1, file) != 1) {
+        fclose(file);
+        return ERR_IO;
+    }
+    fclose(file);
     return 0;
 }
 
@@ -341,7 +357,7 @@ int DeletePatient(Patient* patients, Index* index, const char* ci) {
     if (ci == NULL) return ERR_FIELD_CI_NULL;
     Patient empty_patient;
     memset(&empty_patient, 0, sizeof(Patient));
-    int error = UpdatePatient(patients, index, ci, &empty_patient);
+    int error = UpdatePatient(index, ci, &empty_patient);
     if (error != 0) return error;
     size_t hash;
     error = Hash(&hash, ci);
@@ -363,7 +379,7 @@ int ScheduleAppointment(Patient* patients, Index index, const char* ci, const ch
     int error = GetPatient(&patient, &index_position, index, ci);
     if (error != 0) return error;
     strcpy(patient.appointment_date, date);
-    error = UpdatePatient(patients, (Index*)index, ci, &patient);
+    error = UpdatePatient((Index*)index, ci, &patient);
     if (error != 0) return error;
     return 0;
 }
@@ -371,49 +387,49 @@ int ScheduleAppointment(Patient* patients, Index index, const char* ci, const ch
 
 #ifndef CGO_BUILD
 int main() {
-    //GeneratePatients();
+    GeneratePatients();
     // load the index
-    Index index;
-    memset(index, 0, sizeof(index)); // Initialize the index array
-    int error = 0;
-    // Load Patients from the binary file
-    size_t patient_count = 0;
-    Patient patients[MAX_PATIENTS];
-    memset(patients, 0, sizeof(patients)); // Initialize the patients array
-    error = LoadPatients(patients, &patient_count);
-    if (error != 0) {
-        printf("Error loading patients: %d\n", error);
-        return error;
-    }
-    printf("Loaded %zu patients from binary file.\n", patient_count);
+    // Index index;
+    // memset(index, 0, sizeof(index)); // Initialize the index array
+    // int error = 0;
+    // // Load Patients from the binary file
+    // size_t patient_count = 0;
+    // Patient patients[MAX_PATIENTS];
+    // memset(patients, 0, sizeof(patients)); // Initialize the patients array
+    // error = LoadPatients(patients, &patient_count);
+    // if (error != 0) {
+    //     printf("Error loading patients: %d\n", error);
+    //     return error;
+    // }
+    // printf("Loaded %zu patients from binary file.\n", patient_count);
     // Create index entries for each patient
-    for (size_t i = 0; i < patient_count; i++) {
-        if (patients[i].age == 0) continue; // Skip empty entries
-        error = NewPatientIndex(&index, patients[i].ci, i);
-        if (error != 0) {
-            printf("Error creating index for patient %zu: %d\n", i, error);
-            printf("Skipping patient %s.\n", patients[i].ci);
-            continue; // Skip this patient and continue with the next
-        }
-    }
-    printf("Index created with %zu entries.\n", patient_count);
+    // for (size_t i = 0; i < patient_count; i++) {
+    //     if (patients[i].age == 0) continue; // Skip empty entries
+    //     error = NewPatientIndex(&index, patients[i].ci, i);
+    //     if (error != 0) {
+    //         printf("Error creating index for patient %zu: %d\n", i, error);
+    //         printf("Skipping patient %s.\n", patients[i].ci);
+    //         continue; // Skip this patient and continue with the next
+    //     }
+    // }
+    // printf("Index created with %zu entries.\n", patient_count);
 
-    // Save the index to a file
-    error = SaveIndex(&index);
-    if (error != 0) {
-        printf("Error saving index: %d\n", error);
-        return error;
-    }
-    printf("Index saved to %s.\n", INDEX_FILE);
+    // // Save the index to a file
+    // error = SaveIndex(&index);
+    // if (error != 0) {
+    //     printf("Error saving index: %d\n", error);
+    //     return error;
+    // }
+    // printf("Index saved to %s.\n", INDEX_FILE);
 
-    memset(index, 0, sizeof(index)); // Initialize the index array
-    // Load the index from the file
-    error = LoadIndex(&index);
-    if (error != 0) {
-        printf("Error loading index: %d\n", error);
-        return error;
-    }
-    printf("Index loaded with %u entries.\n", MAX_INDEX);
+    // memset(index, 0, sizeof(index)); // Initialize the index array
+    // // Load the index from the file
+    // error = LoadIndex(&index);
+    // if (error != 0) {
+    //     printf("Error loading index: %d\n", error);
+    //     return error;
+    // }
+    // printf("Index loaded with %u entries.\n", MAX_INDEX);
 
     // // Print the index entries
     // printf("Index entries:\n");
@@ -422,19 +438,19 @@ int main() {
     //     printf("Index %zu: CI=%s, Position=%zu\n", i, index[i].ci, index[i].position);
     // }
 
-    // Example of retrieving a patient using the index
-    for (size_t i = 0; i < MAX_INDEX; i++) {
-        if (index[i].ci[0] == '\0') continue; // Skip empty entries
-        printf("Index %zu: CI=%s, Position=%zu\n", i, index[i].ci, index[i].position);
-        Patient p_temp;
-        size_t index_position;
-        int error = GetPatient(&p_temp, &index_position, index, index[i].ci);
-        if (error == 0) {
-            printf("Patient found: %s, %s, %d\n", p_temp.ci, p_temp.name, p_temp.age);
-        } else {
-            printf("Error retrieving patient for CI: %s, error: %d\n", index[i].ci, error);
-        }
-    }
+    // // Example of retrieving a patient using the index
+    // for (size_t i = 0; i < MAX_INDEX; i++) {
+    //     if (index[i].ci[0] == '\0') continue; // Skip empty entries
+    //     printf("Index %zu: CI=%s, Position=%zu\n", i, index[i].ci, index[i].position);
+    //     Patient p_temp;
+    //     size_t index_position;
+    //     int error = GetPatient(&p_temp, &index_position, index, index[i].ci);
+    //     if (error == 0) {
+    //         printf("Patient found: %s, %s, %d\n", p_temp.ci, p_temp.name, p_temp.age);
+    //     } else {
+    //         printf("Error retrieving patient for CI: %s, error: %d\n", index[i].ci, error);
+    //     }
+    // }
 
     // // Patient* p = NULL;
     // // size_t result = NewPatient(&p, "12345678", "John Doe", 30, "Flu", 'M', 0, "Cardiology", "2023-10-01");
@@ -450,18 +466,18 @@ int main() {
     // //     return error;
     // // }
 
-    // Show all patients
-    error = ShowPatients(patients, patient_count);
-    if (error != 0) {
-        printf("Error showing patients: %d\n", error);
-        return error;
-    }
+    // // Show all patients
+    // error = ShowPatients(patients, patient_count);
+    // if (error != 0) {
+    //     printf("Error showing patients: %d\n", error);
+    //     return error;
+    // }
 
-    error = SyncFiles(patients, patient_count, &index);
-    if (error != 0) {
-        printf("Error syncing files: %d\n", error);
-        return error;
-    }
+    // error = SyncFiles(patients, patient_count, &index);
+    // if (error != 0) {
+    //     printf("Error syncing files: %d\n", error);
+    //     return error;
+    // }
 
     return 0;
 }

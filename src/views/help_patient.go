@@ -110,8 +110,8 @@ func (i *PatientInput) AsList() []textinput.Model {
 		i.ID,
 		i.Name,
 		i.Age,
-		i.Diagnosis,
 		i.Gender,
+		i.Diagnosis,
 		i.Disability,
 		i.DocSpecialty,
 		i.AppointmentDate,
@@ -125,8 +125,8 @@ func (i *PatientInput) FromList(inputs []textinput.Model) {
 	i.ID = inputs[0]
 	i.Name = inputs[1]
 	i.Age = inputs[2]
-	i.Diagnosis = inputs[3]
-	i.Gender = inputs[4]
+	i.Gender = inputs[3]
+	i.Diagnosis = inputs[4]
 	i.Disability = inputs[5]
 	i.DocSpecialty = inputs[6]
 	i.AppointmentDate = inputs[7]

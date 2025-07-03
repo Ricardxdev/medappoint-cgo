@@ -84,6 +84,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			return m.handleSelection()
 		case "ctrl+c", "q":
+			global.PatientsService.Save()
 			return m, tea.Quit
 		}
 	}
@@ -129,6 +130,9 @@ func (m *Model) handleSelection() (tea.Model, tea.Cmd) {
 	case 4:
 		deleteM := views.NewDeleteModel(m, m.BaseModel)
 		return deleteM, deleteM.Init()
+	case 5:
+		global.PatientsService.Save()
+		return m, tea.Quit
 	}
 	return m, nil
 }

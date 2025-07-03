@@ -78,14 +78,12 @@ int NewPatientIndex(Index* index, const char* ci, size_t position);
 
 // Add, update or delete Patient in the in-memory array + index
 int AddPatient(
-    Patient*   patients,
     size_t*    count,
     Index*     index,
     Patient*   new_patient
 );
 
 int UpdatePatient(
-    Patient*   patients,
     Index*     index,
     const char* ci,
     Patient*   updated_patient

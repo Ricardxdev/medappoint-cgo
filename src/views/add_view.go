@@ -49,6 +49,7 @@ func (m AddModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			return m.Parent, nil
 		case "ctrl+c":
+			global.PatientsService.Save()
 			return m, tea.Quit
 			// Set focus to next input
 		case "tab", "shift+tab", "enter", "up", "down":

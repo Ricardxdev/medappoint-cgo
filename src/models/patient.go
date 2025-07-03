@@ -10,6 +10,7 @@ package models
 import "C"
 import (
 	"fmt"
+	"os"
 	"unsafe"
 
 	"github.com/sanity-io/litter"
@@ -125,10 +126,16 @@ func (s *PatientService) AddPatient(p Patient) error {
 		return err
 	}
 
-	errCode := C.AddPatient(&s.patients[0], &s.count_patients, &s.index, &c_patient)
+	errCode := C.AddPatient(&s.count_patients, &s.index, &c_patient)
 	if errCode != 0 {
 		errMsg := C.GoString(C.ErrorDescription(errCode))
 		return fmt.Errorf("error adding patient: %s", errMsg)
+	}
+
+	s.patients = [C.MAX_PATIENTS]C.Patient{}
+	s.count_patients = 0
+	if err := s.LoadPatients(); err != nil {
+		return fmt.Errorf("failed to reload patients after adding: %w", err)
 	}
 
 	return nil
@@ -150,10 +157,16 @@ func (s *PatientService) UpdatePatient(p Patient) error {
 		return err
 	}
 
-	errCode := C.UpdatePatient(&s.patients[0], &s.index, &c_patient.ci[0], &c_patient)
+	errCode := C.UpdatePatient(&s.index, &c_patient.ci[0], &c_patient)
 	if errCode != 0 {
 		errMsg := C.GoString(C.ErrorDescription(errCode))
 		return fmt.Errorf("error updating patient: %s", errMsg)
+	}
+
+	s.patients = [C.MAX_PATIENTS]C.Patient{}
+	s.count_patients = 0
+	if err := s.LoadPatients(); err != nil {
+		return fmt.Errorf("failed to reload patients after adding: %w", err)
 	}
 
 	return nil
@@ -171,6 +184,12 @@ func (s *PatientService) ScheduleAppointment(ci string, date string) error {
 		return fmt.Errorf("error scheduling appointment: %s", errMsg)
 	}
 
+	s.patients = [C.MAX_PATIENTS]C.Patient{}
+	s.count_patients = 0
+	if err := s.LoadPatients(); err != nil {
+		return fmt.Errorf("failed to reload patients after adding: %w", err)
+	}
+
 	return nil
 }
 
@@ -181,6 +200,12 @@ func (s *PatientService) DeletePatient(ci string) error {
 	if errCode != 0 {
 		errMsg := C.GoString(C.ErrorDescription(errCode))
 		return fmt.Errorf("error deleting patient: %s", errMsg)
+	}
+
+	s.patients = [C.MAX_PATIENTS]C.Patient{}
+	s.count_patients = 0
+	if err := s.LoadPatients(); err != nil {
+		return fmt.Errorf("failed to reload patients after adding: %w", err)
 	}
 
 	return nil
@@ -256,6 +281,26 @@ func (s *PatientService) SaveIndex() error {
 		errMsg := C.GoString(C.ErrorDescription(errorCode))
 		return fmt.Errorf("error saving index: %s", errMsg)
 	}
+	return nil
+}
+
+func (s *PatientService) WriteIndexToFile() error {
+	file, err := os.Create("index_log.txt")
+	if err != nil {
+		return fmt.Errorf("failed to create index file: %w", err)
+	}
+	defer file.Close()
+
+	for i := 0; i < C.MAX_INDEX; i++ {
+		if s.index[i].ci[0] == 0 {
+			continue // Skip uninitialized index entries
+		}
+		_, err := fmt.Fprintf(file, "%d -> |%s|%d|\n", i, C.GoString(&s.index[i].ci[0]), s.index[i].position)
+		if err != nil {
+			return fmt.Errorf("failed to write index entry: %w", err)
+		}
+	}
+
 	return nil
 }
 
