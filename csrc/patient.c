@@ -132,12 +132,12 @@ int SavePatients(Patient patients[], size_t patientsCount) {
     SortPatients(patients, 0, patientsCount - 1);
     FILE* file = fopen(PATIENT_FILE, "wb");
     if (file == NULL) return ERR_IO;
-    printf("Saving %zu patients to %s\n", patientsCount, PATIENT_FILE);
+    // printf("Saving %zu patients to %s\n", patientsCount, PATIENT_FILE);
     for (size_t i = 0; i < patientsCount; i++) {
         if (patients[i].age == 0) {
             continue;
         }
-        printf("Saving patient %zu: CI=%s, Name=%s, Age=%d\n", i, patients[i].ci, patients[i].name, patients[i].age);
+        // printf("Saving patient %zu: CI=%s, Name=%s, Age=%d\n", i, patients[i].ci, patients[i].name, patients[i].age);
         if (fwrite(&patients[i], sizeof(Patient), 1, file) != 1) {
             fclose(file);
             return ERR_IO;
@@ -168,6 +168,10 @@ int LoadIndex(
     FILE *file = fopen(INDEX_FILE, "r");
     if (file == NULL) return ERR_IO;
     #define LINE_BUF_SIZE 256
+    // Initialize the index to empty
+    memset(dest, 0, sizeof(*dest));
+    // Read each line and parse the index
+    // Each line should be in the format: |CI|position|
     char line[LINE_BUF_SIZE];
     while (fgets(line, sizeof(line), file)) {
         PatientIndex idx;
@@ -195,9 +199,14 @@ int GetPatient(Patient* p_dest, size_t* i_dest, const Index index, const char* c
     if (index == NULL) return ERR_NULL_PTR;
     size_t hash = 0;
     int err = Hash(&hash, ci);
+    // printf("Hashing CI %s to %zu\n", ci, hash);
     if (err != 0) return ERR_INVALID_ARG;
+    if (index[hash].ci[0] == '\0') {
+        // printf("No patient found for CI %s at hash %zu\n", ci, hash);
+        return ERR_NOT_FOUND;
+    }
     size_t position = index[hash].position;
-    printf("Hash position for CI %s: %zu, File position: %zu\n", ci, hash, position);
+    // printf("Hash position for CI %s: %zu, File position: %zu\n", ci, hash, position);
     FILE* file = fopen(PATIENT_FILE, "rb");
     if (file == NULL) return ERR_IO;
     fseek(file, position * sizeof(Patient), SEEK_SET);
@@ -362,6 +371,7 @@ int ScheduleAppointment(Patient* patients, Index index, const char* ci, const ch
 
 #ifndef CGO_BUILD
 int main() {
+    //GeneratePatients();
     // load the index
     Index index;
     memset(index, 0, sizeof(index)); // Initialize the index array
@@ -388,22 +398,22 @@ int main() {
     }
     printf("Index created with %zu entries.\n", patient_count);
 
-    // // Save the index to a file
-    // error = SaveIndex(&index);
-    // if (error != 0) {
-    //     printf("Error saving index: %d\n", error);
-    //     return error;
-    // }
-    // printf("Index saved to %s.\n", INDEX_FILE);
+    // Save the index to a file
+    error = SaveIndex(&index);
+    if (error != 0) {
+        printf("Error saving index: %d\n", error);
+        return error;
+    }
+    printf("Index saved to %s.\n", INDEX_FILE);
 
-    // memset(index, 0, sizeof(index)); // Initialize the index array
-    // // Load the index from the file
-    // error = LoadIndex(&index);
-    // if (error != 0) {
-    //     printf("Error loading index: %d\n", error);
-    //     return error;
-    // }
-    // printf("Index loaded with %u entries.\n", MAX_INDEX);
+    memset(index, 0, sizeof(index)); // Initialize the index array
+    // Load the index from the file
+    error = LoadIndex(&index);
+    if (error != 0) {
+        printf("Error loading index: %d\n", error);
+        return error;
+    }
+    printf("Index loaded with %u entries.\n", MAX_INDEX);
 
     // // Print the index entries
     // printf("Index entries:\n");
@@ -412,19 +422,19 @@ int main() {
     //     printf("Index %zu: CI=%s, Position=%zu\n", i, index[i].ci, index[i].position);
     // }
 
-    // // Example of retrieving a patient using the index
-    // for (size_t i = 0; i < MAX_INDEX; i++) {
-    //     if (index[i].ci[0] == '\0') continue; // Skip empty entries
-    //     printf("Index %zu: CI=%s, Position=%zu\n", i, index[i].ci, index[i].position);
-    //     Patient p_temp;
-    //     size_t index_position;
-    //     int error = GetPatient(&p_temp, &index_position, index, index[i].ci);
-    //     if (error == 0) {
-    //         printf("Patient found: %s, %s, %d\n", p_temp.ci, p_temp.name, p_temp.age);
-    //     } else {
-    //         printf("Error retrieving patient for CI: %s, error: %d\n", index[i].ci, error);
-    //     }
-    // }
+    // Example of retrieving a patient using the index
+    for (size_t i = 0; i < MAX_INDEX; i++) {
+        if (index[i].ci[0] == '\0') continue; // Skip empty entries
+        printf("Index %zu: CI=%s, Position=%zu\n", i, index[i].ci, index[i].position);
+        Patient p_temp;
+        size_t index_position;
+        int error = GetPatient(&p_temp, &index_position, index, index[i].ci);
+        if (error == 0) {
+            printf("Patient found: %s, %s, %d\n", p_temp.ci, p_temp.name, p_temp.age);
+        } else {
+            printf("Error retrieving patient for CI: %s, error: %d\n", index[i].ci, error);
+        }
+    }
 
     // // Patient* p = NULL;
     // // size_t result = NewPatient(&p, "12345678", "John Doe", 30, "Flu", 'M', 0, "Cardiology", "2023-10-01");

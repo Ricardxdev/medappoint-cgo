@@ -66,6 +66,7 @@ int ListPatientsUnderAge(const Patient* patients, size_t count, int age_limit, P
     if (patients == NULL || count == 0 || dest == NULL || result_count == NULL) return -1;
     *result_count = 0;
     for (size_t i = 0; i < count; i++) {
+        if (patients[i].age <= 0) continue; // Skip invalid ages
         if (patients[i].age < age_limit) {
             dest[(*result_count)++] = patients[i];
         }

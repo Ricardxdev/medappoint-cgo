@@ -1,10 +1,10 @@
 package global
 
-import "ffi-test/src"
+import "ffi-test/src/models"
 
 var (
 	// PatientsService is a global instance of PatientService
-	PatientsService = src.NewPatientService()
+	PatientsService = models.NewPatientService()
 )
 
 func init() {

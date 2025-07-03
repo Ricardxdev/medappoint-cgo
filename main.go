@@ -2,9 +2,11 @@ package main
 
 import (
 	"ffi-test/global"
-	"ffi-test/src"
+	"ffi-test/src/utils"
+	"ffi-test/src/views"
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -32,29 +34,41 @@ func main() {
 type Model struct {
 	choices []string
 	cursor  int
+	help    tea.Model
+	views.BaseModel
 }
 
 func NewModel() Model {
 	return Model{
 		choices: []string{
 			"List Patients",
+			"Search Patient",
 			"Add Patient",
 			"Update Patient",
 			"Delete Patient",
-			"Schedule Appointment",
-			"See Index",
 			"Exit",
 		},
-		cursor: 0,
+		cursor:    0,
+		help:      views.NewHelpModel(),
+		BaseModel: views.BaseModel{},
 	}
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.EnterAltScreen
+	return tea.Batch(tea.SetWindowTitle("Patient Management System"), tea.EnterAltScreen)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Update the help model
+	m.help, _ = m.help.Update(msg)
+	// Update the breadcrumb for the main menu
+	m.Breadcrumb = []string{"Main Menu"}
+
+	// Handle window size messages
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "down":
@@ -68,13 +82,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = len(m.choices) - 1
 			}
 		case "enter":
-			patients, err := global.PatientsService.ListPatients()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error listing patients: %v\n", err)
-				return m, tea.Quit
-			}
-			listM := src.NewModel(patients)
-			return listM, listM.Init()
+			return m.handleSelection()
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		}
@@ -83,39 +91,46 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	s := "Patient Management Menu:\n\n"
+	s := utils.BreadcrumbView(m.Breadcrumb) + "\n\n"
+	menuStr := "Patient Management Menu:\n\n"
 	for i, choice := range m.choices {
 		cursor := " " // no cursor
+		row := fmt.Sprintf("%s %s", cursor, choice)
 		if m.cursor == i {
 			cursor = ">" // cursor
+			row = global.SelectedStyle.Render(fmt.Sprintf("%s %s", cursor, choice))
 		}
-		s += fmt.Sprintf("%s %s\n", cursor, choice)
+		menuStr += row + "\n"
 	}
-	s += "\nPress q to quit.\n"
+
+	// Add help view
+	helpStr := m.help.View()
+	helpStrHeight := strings.Count(helpStr, "\n")
+
+	s += utils.Center(menuStr, m.Width, m.Height-6-helpStrHeight)
+	s += helpStr
 	return s
 }
 
-func (m *Model) handleSelection() tea.Cmd {
+func (m *Model) handleSelection() (tea.Model, tea.Cmd) {
 	switch m.cursor {
 	case 0:
-		// Call function to list patients
-		fmt.Println("Listing patients...")
+		listM := views.NewListMenuModel(m, m.BaseModel)
+		return listM, listM.Init()
 	case 1:
-		// Call function to add a patient
-		fmt.Println("Adding a patient...")
+		searchM := views.NewSearchModel(m, m.BaseModel)
+		return searchM, searchM.Init()
 	case 2:
-		// Call function to update a patient
-		fmt.Println("Updating a patient...")
+		addM := views.NewAddModel(m, m.BaseModel)
+		return addM, addM.Init()
 	case 3:
-		// Call function to delete a patient
-		fmt.Println("Deleting a patient...")
+		updateM := views.NewUpdateModel(m, m.BaseModel)
+		return updateM, updateM.Init()
 	case 4:
-		// Call function to schedule an appointment
-		fmt.Println("Scheduling an appointment...")
-	case 5:
-		return m.Init()
+		deleteM := views.NewDeleteModel(m, m.BaseModel)
+		return deleteM, deleteM.Init()
 	}
-	return nil
+	return m, nil
 }
 
 func Run() {
@@ -124,4 +139,6 @@ func Run() {
 		fmt.Fprintf(os.Stderr, "Error starting program: %v\n", err)
 		os.Exit(1)
 	}
+
+	// global.PatientsService.ListPatients()
 }
